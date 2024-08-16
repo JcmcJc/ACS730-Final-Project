@@ -57,3 +57,9 @@ variable "env" {
   type        = string
   description = "Deployment Environment"
 }
+
+variable "create_nat_gateway" {
+  description = "Control whether to create a route to the NAT Gateway"
+  type        = bool
+  default     = true
+}
