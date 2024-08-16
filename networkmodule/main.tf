@@ -36,6 +36,10 @@ resource "aws_vpc" "main" {
   )
 }
 
+#############
+###Subnets###
+#############
+
 # Add provisioning of the public subnetin the default VPC
 resource "aws_subnet" "public" {
   count             = length(var.public_cidr_blocks)
@@ -44,7 +48,7 @@ resource "aws_subnet" "public" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
   tags = merge(
     local.default_tags, {
-      Name = "${var.prefix}-public-subnet-${count.index}"
+      Name = "${var.prefix}-public-subnet-${count.index+1}"
     }
   )
 }
@@ -56,11 +60,14 @@ resource "aws_subnet" "private" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
   tags = merge(
     local.default_tags, {
-      Name = "${var.prefix}-private-subnet-${count.index}"
+      Name = "${var.prefix}-private-subnet-${count.index+1}"
     }
   )
 }
 
+#######################
+###IGW, NGW, and EIP###
+#######################
 
 # Create Internet Gateway
 resource "aws_internet_gateway" "igw" {
@@ -96,6 +103,10 @@ resource "aws_nat_gateway" "nat" {
   )
 }
 
+##############################
+###Route table associations###
+##############################
+
 # Route table to route add default gateway pointing to Internet Gateway (IGW)
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
@@ -108,10 +119,6 @@ resource "aws_route_table" "public" {
   }
 }
 
-##############################
-###Route table associations###
-##############################
-
 # Route table pointing to public subnet 1 nat gateway for private subnet 1
 resource "aws_route_table" "private0" {
   vpc_id         = aws_vpc.main.id
@@ -120,14 +127,14 @@ resource "aws_route_table" "private0" {
     gateway_id = aws_nat_gateway.nat.id
   }
   tags = {
-    Name = "${var.prefix}-route-private-subnet0"
+    Name = "${var.prefix}-route-private-subnet1"
   }
 }
 # Route table pointing to nothing for private subnet 2
 resource "aws_route_table" "private1" {
   vpc_id         = aws_vpc.main.id
   tags = {
-    Name = "${var.prefix}-route-private-subnet1"
+    Name = "${var.prefix}-route-private-subnet2"
   }
 }
 
@@ -143,7 +150,7 @@ resource "aws_route_table_association" "private0" {
   route_table_id = aws_route_table.private0.id
   subnet_id      = aws_subnet.private[0].id
 }
-#Route for private subnet 2
+#Route for private subnet 2 which doesnt point to anything
 resource "aws_route_table_association" "private1" {
   #count          = length(aws_subnet.private[*].id)
   route_table_id = aws_route_table.private1.id
