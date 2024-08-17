@@ -1,9 +1,8 @@
 
 # Module to deploy basic networking 
 module "vpc-dev" {
-  #source = "../../../FinalProject/dev/networkmodule"
-  #source             = "github.com/Dhansca/acsnwmodule.git"
-  source             = "github.com/JcmcJc/acsnetworkmodule.git"
+  source = "github.com/JcmcJc/ACS730-Final-Project//networkmodule"
+  #source             = "github.com/JcmcJc/acsnetworkmodule.git"
   env                = var.env
   vpc_cidr           = var.vpc_cidr
   public_cidr_blocks = var.public_subnet_cidrs
