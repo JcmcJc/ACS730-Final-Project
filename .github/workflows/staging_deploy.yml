@@ -1,0 +1,81 @@
+name: "Terraform - Staging"
+on:
+  push:
+    branches:
+      - prod
+    paths:
+      - staging/**
+  pull_request:
+    branches:
+      - prod
+    paths: 
+      - staging/**
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform:
+    name: "Terraform"
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY:  ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN:  ${{ secrets.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.1.9
+          terraform_wrapper: true
+
+      # Network Directory Steps
+      - name: Terraform Init - Network
+        id: init-network
+        run: terraform init -reconfigure
+        working-directory: ./staging/network
+
+      - name: Terraform Validate - Network
+        id: validate-network
+        run: terraform validate -no-color
+        working-directory: ./staging/network
+
+      - name: Terraform Plan - Network
+        id: plan-network
+        run: terraform plan -input=false -no-color -out tf.plan
+        working-directory: ./staging/network
+        continue-on-error: true
+
+      - name: Terraform Apply - Network
+        if: github.ref == 'refs/heads/prod' && github.event_name == 'push'
+        run: terraform apply -input=false tf.plan
+        working-directory: ./staging/network
+
+      # Webservers Directory Steps
+      - name: Terraform Init - Webservers
+        id: init-webservers
+        run: terraform init -reconfigure
+        working-directory: ./staging/webservers
+
+      - name: Terraform Validate - Webservers
+        id: validate-webservers
+        run: terraform validate -no-color
+        working-directory: ./staging/webservers
+
+      - name: Terraform Plan - Webservers
+        id: plan-webservers
+        run: terraform plan -input=false -no-color -out tf.plan
+        working-directory: ./staging/webservers
+        continue-on-error: true
+
+      - name: Terraform Apply - Webservers
+        if: github.ref == 'refs/heads/prod' && github.event_name == 'push'
+        run: terraform apply -input=false tf.plan
+        working-directory: ./staging/webservers

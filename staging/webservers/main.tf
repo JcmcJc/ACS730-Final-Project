@@ -18,16 +18,16 @@ provider "aws" {
 data "terraform_remote_state" "public_subnet" { // This is to use Outputs from Remote State
   backend = "s3"
   config = {
-    bucket = "jjackson49project"             // Bucket from where to GET Terraform State
-    key    = "dev/network/terraform.tfstate" // Object name in the bucket to GET Terraform State
+    bucket = "prodjjackson49project"             // Bucket from where to GET Terraform State
+    key    = "prod/network/terraform.tfstate" // Object name in the bucket to GET Terraform State
     region = "us-east-1"                     // Region where bucket created
   }
 }
 data "terraform_remote_state" "private_subnet" { // This is to use Outputs from Remote State
   backend = "s3"
   config = {
-    bucket = "jjackson49project"             // Bucket from where to GET Terraform State
-    key    = "dev/network/terraform.tfstate" // Object name in the bucket to GET Terraform State
+    bucket = "prodjjackson49project"             // Bucket from where to GET Terraform State
+    key    = "prod/network/terraform.tfstate" // Object name in the bucket to GET Terraform State
     region = "us-east-1"                     // Region where bucket created
   }
 }
@@ -53,7 +53,11 @@ locals {
   name_prefix  = "${var.prefix}-${var.env}"
 
 }
+###################
+###EC2 Instances###
+###################
 
+#Terraform Webservers public---------------------------------------------------------------------
 resource "aws_instance" "tfweb" {
   #count = length(data.terraform_remote_state.public_subnet.outputs.public_subnet_ids)
   count = 1
@@ -81,10 +85,12 @@ resource "aws_instance" "tfweb" {
 
   tags = merge(local.default_tags,
     {
-      "Name" = "${var.prefix}-Amazon-Linux${count.index}"
+      "Name" = "${var.prefix}-${var.env}-EC2-Linux${count.index+1}"
     }
   )
 }
+
+#Terraform Bastion------------------------------------------------------------------------------
 resource "aws_instance" "bastion" {
   ami           = data.aws_ami.latest_amazon_linux.id
   instance_type = lookup(var.instance_type, var.env)
@@ -101,6 +107,88 @@ resource "aws_instance" "bastion" {
     Name = "BastionHost"
   }
 }
+
+#Ansible webservers----------------------------------------------------------------------------
+resource "aws_instance" "ec2public" {
+  #count = length(data.terraform_remote_state.public_subnet.outputs.public_subnet_ids)
+  count = 2
+  
+  ami                         = data.aws_ami.latest_amazon_linux.id
+  instance_type               = lookup(var.instance_type, var.env)
+  key_name                    = aws_key_pair.week7.key_name
+  security_groups             = [aws_security_group.acs730w7.id]
+  subnet_id                   = data.terraform_remote_state.public_subnet.outputs.public_subnet_ids[count.index+2]
+  associate_public_ip_address = true
+  root_block_device {
+    encrypted = var.env == "test" ? true : false
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = merge(local.default_tags,
+    {
+      "Name" = "${var.prefix}-${var.env}-EC2-Linux${count.index+3}"
+    }
+  )
+}
+#Terraform Webserver private---------------------------------------------------------------------
+resource "aws_instance" "tfwebprivate" {
+  #count = length(data.terraform_remote_state.public_subnet.outputs.public_subnet_ids)
+  ami                         = data.aws_ami.latest_amazon_linux.id
+  instance_type               = lookup(var.instance_type, var.env)
+  key_name                    = aws_key_pair.week7.key_name
+  security_groups             = [aws_security_group.acs730w7.id]
+  subnet_id                   = data.terraform_remote_state.private_subnet.outputs.private_subnet_ids[0]
+  associate_public_ip_address = false
+  user_data = templatefile("${path.module}/install_httpd.sh.tpl",
+    {
+      env    = upper(var.env),
+      prefix = upper(var.prefix)
+    }
+  )
+#user_data                   = file("${path.module}/install_httpd.sh")
+  root_block_device {
+    encrypted = var.env == "test" ? true : false
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = merge(local.default_tags,
+    {
+      "Name" = "${var.prefix}-${var.env}-EC2-Linux-private1"
+    }
+  )
+}
+#Terraform EC2 Instance private subnet 2---------------------------------------------------------------------
+resource "aws_instance" "ec2private" {
+  ami                         = data.aws_ami.latest_amazon_linux.id
+  instance_type               = lookup(var.instance_type, var.env)
+  key_name                    = aws_key_pair.week7.key_name
+  security_groups             = [aws_security_group.acs730w7.id]
+  subnet_id                   = data.terraform_remote_state.private_subnet.outputs.private_subnet_ids[1]
+  associate_public_ip_address = false
+  root_block_device {
+    encrypted = var.env == "test" ? true : false
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = merge(local.default_tags,
+    {
+      "Name" = "${var.prefix}-${var.env}-EC2-Linux-private2"
+    }
+  )
+}
+##############
+###Security###
+##############
+
 # Adding SSH  key to instance
 resource "aws_key_pair" "week7" {
   key_name   = var.prefix
@@ -136,7 +224,7 @@ resource "aws_security_group" "acs730w7" {
 
   tags = merge(local.default_tags,
     {
-      "Name" = "${var.prefix}-web-server"
+      "Name" = "${var.prefix}-${var.env}-web-server"
     }
   )
 }
