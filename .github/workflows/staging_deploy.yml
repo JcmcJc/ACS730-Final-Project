@@ -52,14 +52,14 @@ jobs:
       - name: Terraform Plan - Network
         id: plan-network
 
-        run: terraform plan -no-color -input=false -detailed-exitcode 
+        run: terraform plan -no-color -input=false
 
         working-directory: ./staging/network
         continue-on-error: true
 
       - name: Terraform Apply - Network
         if: github.ref == 'refs/heads/prod' && github.event_name == 'push'
-        run: terraform apply -no-color -input=false -detailed-exitcode
+        run: terraform apply -no-color -input=false
         working-directory: ./staging/network
 
       # Webservers Directory Steps
@@ -75,13 +75,13 @@ jobs:
 
       - name: Terraform Plan - Webservers
         id: plan-webservers
-        run: terraform plan -no-color -input=false -detailed-exitcode 
+        run: terraform plan -no-color -input=false
         working-directory: ./staging/webservers
         continue-on-error: true
 
       - name: Terraform Apply - Webservers
         if: github.ref == 'refs/heads/prod' && github.event_name == 'push'
 
-        run: terraform apply -no-color -input=false -detailed-exitcode
+        run: terraform apply -no-color -input=false
         working-directory: ./staging/webservers
 
