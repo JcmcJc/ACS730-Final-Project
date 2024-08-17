@@ -49,7 +49,9 @@ jobs:
 
       - name: Terraform Plan - Network
         id: plan-network
+
         run: terraform plan -no-color
+
         working-directory: ./staging/network
         continue-on-error: true
 
@@ -77,5 +79,6 @@ jobs:
 
       - name: Terraform Apply - Webservers
         if: github.ref == 'refs/heads/prod' && github.event_name == 'push'
+        
         run: terraform apply --auto-approve
         working-directory: ./staging/webservers
