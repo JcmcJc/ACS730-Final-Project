@@ -18,7 +18,7 @@ provider "aws" {
 data "terraform_remote_state" "public_subnet" { // This is to use Outputs from Remote State
   backend = "s3"
   config = {
-    bucket = "devjjackson49a1"             // Bucket from where to GET Terraform State
+    bucket = "jjackson49project"             // Bucket from where to GET Terraform State
     key    = "dev/network/terraform.tfstate" // Object name in the bucket to GET Terraform State
     region = "us-east-1"                     // Region where bucket created
   }
@@ -26,7 +26,7 @@ data "terraform_remote_state" "public_subnet" { // This is to use Outputs from R
 data "terraform_remote_state" "private_subnet" { // This is to use Outputs from Remote State
   backend = "s3"
   config = {
-    bucket = "devjjackson49a1"             // Bucket from where to GET Terraform State
+    bucket = "jjackson49project"             // Bucket from where to GET Terraform State
     key    = "dev/network/terraform.tfstate" // Object name in the bucket to GET Terraform State
     region = "us-east-1"                     // Region where bucket created
   }
@@ -54,22 +54,23 @@ locals {
 
 }
 
-resource "aws_instance" "acs73026" {
-  count = length(data.terraform_remote_state.private_subnet.outputs.private_subnet_ids)
+resource "aws_instance" "tfweb" {
+  #count = length(data.terraform_remote_state.public_subnet.outputs.public_subnet_ids)
+  count = 1
   
   ami                         = data.aws_ami.latest_amazon_linux.id
   instance_type               = lookup(var.instance_type, var.env)
   key_name                    = aws_key_pair.week7.key_name
   security_groups             = [aws_security_group.acs730w7.id]
-  subnet_id                   = data.terraform_remote_state.private_subnet.outputs.private_subnet_ids[count.index]
-  associate_public_ip_address = false
-  #user_data = templatefile("${path.module}/install_httpd.sh.tpl",
-   # {
-      #env    = upper(var.env),
-     # prefix = upper(var.prefix)
-   # }
- # )
-user_data                   = file("${path.module}/install_httpd.sh")
+  subnet_id                   = data.terraform_remote_state.public_subnet.outputs.public_subnet_ids[count.index]
+  associate_public_ip_address = true
+  user_data = templatefile("${path.module}/install_httpd.sh.tpl",
+    {
+      env    = upper(var.env),
+      prefix = upper(var.prefix)
+    }
+  )
+#user_data                   = file("${path.module}/install_httpd.sh")
   root_block_device {
     encrypted = var.env == "test" ? true : false
   }
@@ -90,6 +91,12 @@ resource "aws_instance" "bastion" {
   subnet_id     = data.terraform_remote_state.public_subnet.outputs.public_subnet_ids[1]
   security_groups = [aws_security_group.bastion_sg.id]
   associate_public_ip_address = true
+   user_data = templatefile("${path.module}/install_httpd.sh.tpl",
+    {
+      env    = upper(var.env),
+      prefix = upper(var.prefix)
+    }
+  )
   tags = {
     Name = "BastionHost"
   }

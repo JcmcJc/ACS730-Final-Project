@@ -36,31 +36,38 @@ resource "aws_vpc" "main" {
   )
 }
 
+#############
+###Subnets###
+#############
+
 # Add provisioning of the public subnetin the default VPC
-resource "aws_subnet" "public_subnet" {
+resource "aws_subnet" "public" {
   count             = length(var.public_cidr_blocks)
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.public_cidr_blocks[count.index]
   availability_zone = data.aws_availability_zones.available.names[count.index]
   tags = merge(
     local.default_tags, {
-      Name = "${var.prefix}-public-subnet-${count.index}"
+      Name = "${var.prefix}-public-subnet-${count.index+1}"
     }
   )
 }
 # Add provisioning of the private subnetin the default VPC
-resource "aws_subnet" "private_subnet" {
+resource "aws_subnet" "private" {
   count             = length(var.private_cidr_blocks)
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.private_cidr_blocks[count.index]
   availability_zone = data.aws_availability_zones.available.names[count.index]
   tags = merge(
     local.default_tags, {
-      Name = "${var.prefix}-private-subnet-${count.index}"
+      Name = "${var.prefix}-private-subnet-${count.index+1}"
     }
   )
 }
 
+#######################
+###IGW, NGW, and EIP###
+#######################
 
 # Create Internet Gateway
 resource "aws_internet_gateway" "igw" {
@@ -75,20 +82,20 @@ resource "aws_internet_gateway" "igw" {
 #Create elastic ips for nat gateways
 resource "aws_eip" "static_eip" {
   #instance = aws_instance.acs73026.id
-  count = length(aws_subnet.public_subnet[*].id)
+  #count = length(aws_subnet.public[*].id)
   tags = merge(local.default_tags,
     {
-      "Name" = "${var.prefix}-eip${count.index}"
+      "Name" = "${var.prefix}-eip"
     }
   )
 }
 
-#Create nat gateway
+#Create nat gateway in public subnet 1
 resource "aws_nat_gateway" "nat" {
-  count          = length(aws_subnet.public_subnet[*].id)
+  #count          = length(aws_subnet.public[*].id)
   connectivity_type = "public"
-  allocation_id = aws_eip.static_eip[count.index].id
-  subnet_id         = aws_subnet.public_subnet[count.index].id
+  allocation_id = aws_eip.static_eip.id
+  subnet_id         = aws_subnet.public[0].id
    tags = merge(local.default_tags,
     {
       "Name" = "${var.prefix}-ngw"
@@ -96,8 +103,12 @@ resource "aws_nat_gateway" "nat" {
   )
 }
 
+##############################
+###Route table associations###
+##############################
+
 # Route table to route add default gateway pointing to Internet Gateway (IGW)
-resource "aws_route_table" "public_subnets" {
+resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
   route {
     cidr_block = "0.0.0.0/0"
@@ -107,44 +118,43 @@ resource "aws_route_table" "public_subnets" {
     Name = "${var.prefix}-route-public-subnets"
   }
 }
-# Route table pointing to subnet 2 bastion
-resource "aws_route_table" "private_subnet0" {
-  vpc_id = aws_vpc.main.id
+
+# Route table pointing to public subnet 1 nat gateway for private subnet 1
+resource "aws_route_table" "private0" {
+  vpc_id         = aws_vpc.main.id
   route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_nat_gateway.nat[0].id
-  }
-  tags = {
-    Name = "${var.prefix}-route-private-subnet0"
-  }
-}
-# Route table pointing to subnet 2 bastion
-resource "aws_route_table" "private_subnet1" {
-  vpc_id = aws_vpc.main.id
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_nat_gateway.nat[1].id
+    cidr_block  = "0.0.0.0/0"
+    gateway_id = aws_nat_gateway.nat.id
   }
   tags = {
     Name = "${var.prefix}-route-private-subnet1"
   }
 }
+# Route table pointing to nothing for private subnet 2
+resource "aws_route_table" "private1" {
+  vpc_id         = aws_vpc.main.id
+  tags = {
+    Name = "${var.prefix}-route-private-subnet2"
+  }
+}
+
 # Associate subnets with the custom route table
-resource "aws_route_table_association" "public_route_table_association" {
-  count          = length(aws_subnet.public_subnet[*].id)
-  route_table_id = aws_route_table.public_subnets.id
-  subnet_id      = aws_subnet.public_subnet[count.index].id
+resource "aws_route_table_association" "public" {
+  count          = length(aws_subnet.public[*].id)
+  route_table_id = aws_route_table.public.id
+  subnet_id      = aws_subnet.public[count.index].id
 }
-#Nat gateway 0 to private subnet 0
-resource "aws_route_table_association" "private_route_table_association" {
-  #count          = length(aws_subnet.private_subnet[*].id)
-  route_table_id = aws_route_table.private_subnet0.id
-  subnet_id      = aws_subnet.private_subnet[0].id
+#Route for Nat gateway to private subnet 1 ONLY
+resource "aws_route_table_association" "private0" {
+  #count          = length(aws_subnet.private[*].id)
+  route_table_id = aws_route_table.private0.id
+  subnet_id      = aws_subnet.private[0].id
 }
-#Nat gateway1 to private subnet1
-resource "aws_route_table_association" "private_route_table_association1" {
-  #count          = length(aws_subnet.private_subnet[*].id)
-  route_table_id = aws_route_table.private_subnet1.id
-  subnet_id      = aws_subnet.private_subnet[1].id
+#Route for private subnet 2 which doesnt point to anything
+resource "aws_route_table_association" "private1" {
+  #count          = length(aws_subnet.private[*].id)
+  route_table_id = aws_route_table.private1.id
+  subnet_id      = aws_subnet.private[1].id
 }
+
 
