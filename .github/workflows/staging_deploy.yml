@@ -68,7 +68,7 @@ jobs:
       
       - name: Terraform Show
         id: show
-        run: terraform show -no-color tf.plan 2>&1 > /tmp/plan.txt
+        run: terraform show -no-color
         working-directory: ./staging/network # Use your environment folder
           
       - uses: actions/github-script@v6
