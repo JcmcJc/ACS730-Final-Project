@@ -19,21 +19,14 @@ Ensure that networkmodule is in the same folder as prod, dev, and staging.
    tf plan
    tf apply 
 ```
-6. Update the desired input varibles in prod and deploy prod network with the commands below
+6. Commit a change and push it to the GitHub Repository
 ```
-   cd ~/summer/Lab4/aws_network/prod/webservers
-   tf init
-   tf plan
-   tf apply
+    git commit -m "Test commit"
+    git push origin staging
  ```
-7. Deploy the webservers of the prod environment (MUST Deploy this last for VPC peering to work correctly)
-```
-   cd ~/summer/Lab4/aws_network/dev/webservers 
-   tf init
-   tf plan
-   tf apply 
-```
-8. Manually change the public subnet route table to allow VPC peering with CIDR 10.1.0.0/16 on AWS
+7. Create a pull request on GitHub
+
+8.Deploy prod resources using GitHub Actions
 
 ###Clean Up process 
 
