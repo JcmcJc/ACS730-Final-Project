@@ -8,7 +8,7 @@ keyed_groups:
 filters:
   instance-state-name : running
   instance-id: 
-    - i-09b1c4e9fa1bd719b
-    - i-0df377a0fa65ed25a
+    - i-0990a2d2a05903648
+    - i-00cc4b591dc1dd01f
 compose:
   ansible_host: public_ip_address
